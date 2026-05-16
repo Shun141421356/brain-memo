@@ -103,6 +103,26 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Hiragino Sans',san
 .add-row:hover{color:var(--text-secondary)}
 .step-item{display:flex;align-items:flex-start;gap:10px;margin-bottom:8px}
 .step-num{width:22px;height:22px;border-radius:50%;background:var(--bg-primary);border:0.5px solid var(--border-mid);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:500;color:var(--text-secondary);flex-shrink:0;margin-top:1px}
+.row-del{width:22px;height:22px;border:none;background:none;cursor:pointer;color:var(--text-tertiary);display:flex;align-items:center;justify-content:center;flex-shrink:0;border-radius:4px;font-size:14px;padding:0;margin-top:1px}
+.row-del:hover{color:#A32D2D;background:#FCEBEB}
+.md-tabs{display:flex;gap:0;margin-bottom:8px;border:0.5px solid var(--border-light);border-radius:var(--radius-md);overflow:hidden;width:fit-content}
+.md-tab{padding:5px 14px;font-size:13px;cursor:pointer;border:none;background:none;color:var(--text-secondary);font-family:inherit}
+.md-tab.active{background:var(--bg-primary);color:var(--text-primary);font-weight:500}
+.md-preview{min-height:220px;font-size:14px;line-height:1.8;color:var(--text-primary)}
+.md-preview h1,.md-preview h2,.md-preview h3{font-weight:500;margin:1em 0 0.4em;line-height:1.3}
+.md-preview h1{font-size:18px}.md-preview h2{font-size:16px}.md-preview h3{font-size:14px}
+.md-preview p{margin:0 0 0.7em}
+.md-preview ul,.md-preview ol{padding-left:1.4em;margin:0 0 0.7em}
+.md-preview li{margin:0.2em 0}
+.md-preview code{font-family:monospace;background:var(--bg-secondary);padding:1px 5px;border-radius:3px;font-size:13px}
+.md-preview pre{background:var(--bg-secondary);padding:10px 12px;border-radius:var(--radius-md);overflow-x:auto;margin:0 0 0.7em}
+.md-preview pre code{background:none;padding:0}
+.md-preview blockquote{border-left:3px solid var(--border-mid);padding-left:12px;color:var(--text-secondary);margin:0 0 0.7em}
+.md-preview hr{border:none;border-top:0.5px solid var(--border-light);margin:1em 0}
+.md-preview strong{font-weight:500}
+.md-preview em{font-style:italic}
+.md-preview a{color:#185FA5}
+.md-preview input[type=checkbox]{accent-color:#1D9E75;margin-right:5px}
 
 .img-section{background:var(--bg-secondary);border-radius:var(--radius-md);padding:1rem}
 .img-grid{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
@@ -293,14 +313,52 @@ function renderTemplate(type,data){
       <div class="section-block"><div class="section-label">欲しいアウトプット</div><input class="field-input" id="f-output" placeholder="ファイル / URL / 報告 など" value="${escHtml(data?data.output:'')}" /></div>
       <div class="section-block"><div class="section-label">その他・補足</div><textarea class="field-input" id="f-note" rows="2" placeholder="優先度、注意点など">${escHtml(data?data.note:'')}</textarea></div>`;
   } else {
-    area.innerHTML=`<div class="section-block" style="min-height:200px"><div class="section-label">メモ</div><textarea class="field-input" id="f-body" rows="12" placeholder="自由に書いてください">${escHtml(data?data.body:'')}</textarea></div>`;
+    area.innerHTML=`<div class="section-block" style="min-height:260px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div class="section-label" style="margin:0">メモ</div>
+        <div class="md-tabs"><button class="md-tab active" data-tab="edit" onclick="setMdTab('edit')" type="button">編集</button><button class="md-tab" data-tab="preview" onclick="setMdTab('preview')" type="button">プレビュー</button></div>
+      </div>
+      <textarea class="field-input" id="f-body" rows="13" placeholder="自由に書いてください&#10;&#10;マークダウンが使えます&#10;## 見出し  **太字**  - リスト">${escHtml(data?data.body:'')}</textarea>
+      <div id="md-preview-area" style="display:none"></div>
+    </div>`;
   }
 }
 
-function todoRow(done,text,i){return`<div class="todo-item"><input type="checkbox" class="todo-cb" ${done?'checked':''} onchange="this.nextElementSibling.classList.toggle('done',this.checked)" /><input class="todo-text${done?' done':''}" placeholder="タスクを入力..." value="${escHtml(text)}" onkeydown="if(event.key==='Enter'){event.preventDefault();addTodoRow()}" /></div>`;}
-function stepRow(text,i){return`<div class="step-item"><div class="step-num">${i+1}</div><input class="field-input" style="padding:2px 0" placeholder="ステップを入力..." value="${escHtml(text)}" onkeydown="if(event.key==='Enter'){event.preventDefault();addStepRow()}" /></div>`;}
+function todoRow(done,text,i){return`<div class="todo-item"><input type="checkbox" class="todo-cb" ${done?'checked':''} onchange="this.nextElementSibling.classList.toggle('done',this.checked)" /><input class="todo-text${done?' done':''}" placeholder="タスクを入力..." value="${escHtml(text)}" onkeydown="if(event.key==='Enter'){event.preventDefault();addTodoRow()}" /><button class="row-del" onclick="this.closest('.todo-item').remove()" title="削除" type="button"><i class="ti ti-x"></i></button></div>`;}
+function stepRow(text,i){return`<div class="step-item"><div class="step-num">${i+1}</div><input class="field-input" style="padding:2px 0;flex:1" placeholder="ステップを入力..." value="${escHtml(text)}" onkeydown="if(event.key==='Enter'){event.preventDefault();addStepRow()}" /><button class="row-del" onclick="removeStep(this)" title="削除" type="button"><i class="ti ti-x"></i></button></div>`;}
 function addTodoRow(){const c=document.getElementById('todoItems');const d=document.createElement('div');d.innerHTML=todoRow(false,'',todoCount++);c.appendChild(d.firstChild);c.lastChild.querySelector('input:not([type="checkbox"])').focus();}
 function addStepRow(){const c=document.getElementById('stepItems');const i=c.children.length;const d=document.createElement('div');d.innerHTML=stepRow('',i);c.appendChild(d.firstChild);c.lastChild.querySelector('input').focus();}
+function removeStep(btn){const c=document.getElementById('stepItems');btn.closest('.step-item').remove();[...c.querySelectorAll('.step-num')].forEach((n,i)=>n.textContent=i+1);}
+
+function mdToHtml(md){
+  let h=escHtml(md);
+  h=h.replace(/^### (.+)$/gm,'<h3>$1</h3>');
+  h=h.replace(/^## (.+)$/gm,'<h2>$1</h2>');
+  h=h.replace(/^# (.+)$/gm,'<h1>$1</h1>');
+  h=h.replace(/^---$/gm,'<hr>');
+  h=h.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
+  h=h.replace(/\*(.+?)\*/g,'<em>$1</em>');
+  h=h.replace(/`([^`]+)`/g,'<code>$1</code>');
+  h=h.replace(/^&gt; (.+)$/gm,'<blockquote>$1</blockquote>');
+  h=h.replace(/^- \[x\] (.+)$/gm,'<li><input type="checkbox" checked disabled> $1</li>');
+  h=h.replace(/^- \[ \] (.+)$/gm,'<li><input type="checkbox" disabled> $1</li>');
+  h=h.replace(/^[\*\-] (.+)$/gm,'<li>$1</li>');
+  h=h.replace(/^(\d+)\. (.+)$/gm,'<li>$2</li>');
+  h=h.replace(/(<li>.*<\/li>\n?)+/g,s=>`<ul>${s}</ul>`);
+  h=h.replace(/\[(.+?)\]\((.+?)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>');
+  h=h.split(/\n\n+/).map(p=>{
+    if(/^<(h[123]|ul|ol|hr|blockquote|pre)/.test(p.trim())) return p;
+    return `<p>${p.replace(/\n/g,'<br>')}</p>`;
+  }).join('');
+  return h;
+}
+function setMdTab(tab){
+  document.querySelectorAll('.md-tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===tab));
+  const ed=document.getElementById('f-body');
+  const pv=document.getElementById('md-preview-area');
+  if(tab==='edit'){ed.style.display='';pv.style.display='none';}
+  else{pv.innerHTML=`<div class="md-preview">${mdToHtml(ed.value||'')}</div>`;ed.style.display='none';pv.style.display='';}
+}
 
 function collectData(type){
   if(type==='todo'){const todos=[...document.querySelectorAll('#todoItems .todo-item')].map(r=>({done:r.querySelector('.todo-cb').checked,text:r.querySelector('input:not([type="checkbox"])').value})).filter(t=>t.text.trim());return{goal:document.getElementById('f-goal').value,todos,note:document.getElementById('f-note').value};}
