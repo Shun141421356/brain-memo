@@ -338,8 +338,8 @@ function renderTemplate(type,data){
                 <tr><td><code>*斜体*</code></td><td><em>斜体</em></td></tr>
                 <tr><td><code>- 項目</code></td><td>箇条書き</td></tr>
                 <tr><td><code>1. 項目</code></td><td>番号リスト</td></tr>
-                <tr><td><code>- [ ] タスク</code></td><td>☐ チェックボックス</td></tr>
-                <tr><td><code>- [x] 完了</code></td><td>☑ チェック済み</td></tr>
+                <tr><td><code>-&nbsp;[&nbsp;]&nbsp;タスク</code></td><td>☐ 未完了</td></tr>
+                <tr><td><code>-&nbsp;[x]&nbsp;完了</code></td><td>☑ 完了済み</td></tr><tr><td colspan="2" style="font-size:11px;color:var(--text-tertiary);padding-top:2px;padding-bottom:4px">ハイフンの後・括弧の後にスペース必須</td></tr>
                 <tr><td><code>&gt; 引用文</code></td><td>引用ブロック</td></tr>
                 <tr><td><code>\`コード\`</code></td><td>インラインコード</td></tr>
                 <tr><td><code>---</code></td><td>区切り線</td></tr>
@@ -362,26 +362,64 @@ function addStepRow(){const c=document.getElementById('stepItems');const i=c.chi
 function removeStep(btn){const c=document.getElementById('stepItems');btn.closest('.step-item').remove();[...c.querySelectorAll('.step-num')].forEach((n,i)=>n.textContent=i+1);}
 
 function mdToHtml(md){
-  let h=escHtml(md);
-  h=h.replace(/^### (.+)$/gm,'<h3>$1</h3>');
-  h=h.replace(/^## (.+)$/gm,'<h2>$1</h2>');
-  h=h.replace(/^# (.+)$/gm,'<h1>$1</h1>');
-  h=h.replace(/^---$/gm,'<hr>');
-  h=h.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
-  h=h.replace(/\*(.+?)\*/g,'<em>$1</em>');
-  h=h.replace(/`([^`]+)`/g,'<code>$1</code>');
-  h=h.replace(/^&gt; (.+)$/gm,'<blockquote>$1</blockquote>');
-  h=h.replace(/^- \[x\] (.+)$/gm,'<li><input type="checkbox" checked disabled> $1</li>');
-  h=h.replace(/^- \[ \] (.+)$/gm,'<li><input type="checkbox" disabled> $1</li>');
-  h=h.replace(/^[\*\-] (.+)$/gm,'<li>$1</li>');
-  h=h.replace(/^(\d+)\. (.+)$/gm,'<li>$2</li>');
-  h=h.replace(/(<li>.*<\/li>\n?)+/g,s=>`<ul>${s}</ul>`);
-  h=h.replace(/\[(.+?)\]\((.+?)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>');
-  h=h.split(/\n\n+/).map(p=>{
-    if(/^<(h[123]|ul|ol|hr|blockquote|pre)/.test(p.trim())) return p;
-    return `<p>${p.replace(/\n/g,'<br>')}</p>`;
-  }).join('');
-  return h;
+  function inlineEsc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+  function inlineFmt(s){
+    s=inlineEsc(s);
+    s=s.replace(/`([^`]+)`/g,'<code>$1</code>');
+    s=s.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
+    s=s.replace(/\*(.+?)\*/g,'<em>$1</em>');
+    s=s.replace(/\[(.+?)\]\((.+?)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>');
+    return s;
+  }
+  const lines=md.split('\n');
+  let html='', i=0;
+  while(i<lines.length){
+    const line=lines[i];
+    const h3=/^### (.+)/.exec(line); if(h3){html+=`<h3>${inlineFmt(h3[1])}</h3>`;i++;continue;}
+    const h2=/^## (.+)/.exec(line);  if(h2){html+=`<h2>${inlineFmt(h2[1])}</h2>`;i++;continue;}
+    const h1=/^# (.+)/.exec(line);   if(h1){html+=`<h1>${inlineFmt(h1[1])}</h1>`;i++;continue;}
+    if(/^---$/.test(line)){html+='<hr>';i++;continue;}
+    if(/^> /.test(line)){html+=`<blockquote>${inlineFmt(line.slice(2))}</blockquote>`;i++;continue;}
+    if(/^- \[x\] /.test(line)){
+      html+='<ul>';
+      while(i<lines.length&&/^- \[.\] /.test(lines[i])){
+        const checked=/^- \[x\] /.test(lines[i]);
+        html+=`<li><input type="checkbox" ${checked?'checked ':''} disabled>${inlineFmt(lines[i].slice(6))}</li>`;
+        i++;
+      }
+      html+='</ul>';continue;
+    }
+    if(/^- \[ \] /.test(line)){
+      html+='<ul>';
+      while(i<lines.length&&/^- \[.\] /.test(lines[i])){
+        const checked=/^- \[x\] /.test(lines[i]);
+        html+=`<li><input type="checkbox" ${checked?'checked ':''} disabled>${inlineFmt(lines[i].slice(6))}</li>`;
+        i++;
+      }
+      html+='</ul>';continue;
+    }
+    if(/^[-*] /.test(line)){
+      html+='<ul>';
+      while(i<lines.length&&/^[-*] /.test(lines[i])){
+        html+=`<li>${inlineFmt(lines[i].slice(2))}</li>`;i++;
+      }
+      html+='</ul>';continue;
+    }
+    if(/^\d+\. /.test(line)){
+      html+='<ol>';
+      while(i<lines.length&&/^\d+\. /.test(lines[i])){
+        html+=`<li>${inlineFmt(lines[i].replace(/^\d+\. /,''))}</li>`;i++;
+      }
+      html+='</ol>';continue;
+    }
+    if(line.trim()===''){html+='<br>';i++;continue;}
+    let para='';
+    while(i<lines.length&&lines[i].trim()!==''&&!/^(#|>|[-*]|\d+\.|---)/.test(lines[i])){
+      para+=lines[i]+'\n';i++;
+    }
+    if(para.trim()) html+=`<p>${inlineFmt(para.trim()).replace(/\n/g,'<br>')}</p>`;
+  }
+  return html;
 }
 function setMdTab(tab){
   document.querySelectorAll('.md-tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===tab));
