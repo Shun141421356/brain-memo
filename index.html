@@ -342,6 +342,7 @@ function renderTemplate(type,data){
                 <tr><td><code>-&nbsp;[x]&nbsp;完了</code></td><td>☑ 完了済み</td></tr><tr><td colspan="2" style="font-size:11px;color:var(--text-tertiary);padding-top:2px;padding-bottom:4px">ハイフンの後・括弧の後にスペース必須</td></tr>
                 <tr><td><code>&gt; 引用文</code></td><td>引用ブロック</td></tr>
                 <tr><td><code>\`コード\`</code></td><td>インラインコード</td></tr>
+                <tr><td><code>\`\`\`</code> 〜 <code>\`\`\`</code></td><td>コードブロック</td></tr>
                 <tr><td><code>---</code></td><td>区切り線</td></tr>
               </table>
             </div>
@@ -379,28 +380,30 @@ function mdToHtml(md){
     const h2=/^## (.+)/.exec(line);  if(h2){html+=`<h2>${inlineFmt(h2[1])}</h2>`;i++;continue;}
     const h1=/^# (.+)/.exec(line);   if(h1){html+=`<h1>${inlineFmt(h1[1])}</h1>`;i++;continue;}
     if(/^---$/.test(line)){html+='<hr>';i++;continue;}
-    if(/^> /.test(line)){html+=`<blockquote>${inlineFmt(line.slice(2))}</blockquote>`;i++;continue;}
-    if(/^- \[x\] /.test(line)){
-      html+='<ul>';
-      while(i<lines.length&&/^- \[.\] /.test(lines[i])){
-        const checked=/^- \[x\] /.test(lines[i]);
-        html+=`<li><input type="checkbox" ${checked?'checked ':''} disabled>${inlineFmt(lines[i].slice(6))}</li>`;
-        i++;
-      }
-      html+='</ul>';continue;
+    if(/^```/.test(line)){
+      const lang=line.slice(3).trim();
+      i++;
+      let code='';
+      while(i<lines.length&&!/^```/.test(lines[i])){code+=inlineEsc(lines[i])+'
+';i++;}
+      if(/^```/.test(lines[i]??'')) i++;
+      html+=`<pre><code${lang?` class="language-${inlineEsc(lang)}"`:''}>` +code.replace(/
+$/,'')+ `</code></pre>`;
+      continue;
     }
-    if(/^- \[ \] /.test(line)){
-      html+='<ul>';
-      while(i<lines.length&&/^- \[.\] /.test(lines[i])){
+    if(/^> /.test(line)){html+=`<blockquote>${inlineFmt(line.slice(2))}</blockquote>`;i++;continue;}
+    if(/^- \[[ x]\] /.test(line)){
+      html+='<ul style="padding-left:0">';
+      while(i<lines.length&&/^- \[[ x]\] /.test(lines[i])){
         const checked=/^- \[x\] /.test(lines[i]);
-        html+=`<li><input type="checkbox" ${checked?'checked ':''} disabled>${inlineFmt(lines[i].slice(6))}</li>`;
+        html+=`<li style="list-style:none"><input type="checkbox" ${checked?'checked ':''} disabled> ${inlineFmt(lines[i].slice(6))}</li>`;
         i++;
       }
       html+='</ul>';continue;
     }
     if(/^[-*] /.test(line)){
       html+='<ul>';
-      while(i<lines.length&&/^[-*] /.test(lines[i])){
+      while(i<lines.length&&/^[-*] /.test(lines[i])&&!/^- \[[ x]\] /.test(lines[i])){
         html+=`<li>${inlineFmt(lines[i].slice(2))}</li>`;i++;
       }
       html+='</ul>';continue;
@@ -414,7 +417,7 @@ function mdToHtml(md){
     }
     if(line.trim()===''){html+='<br>';i++;continue;}
     let para='';
-    while(i<lines.length&&lines[i].trim()!==''&&!/^(#|>|[-*]|\d+\.|---)/.test(lines[i])){
+    while(i<lines.length&&lines[i].trim()!==''&&!/^(#|>|[-*]|\d+\.|---|```)/.test(lines[i])){
       para+=lines[i]+'\n';i++;
     }
     if(para.trim()) html+=`<p>${inlineFmt(para.trim()).replace(/\n/g,'<br>')}</p>`;
