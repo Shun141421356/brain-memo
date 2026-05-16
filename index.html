@@ -262,11 +262,13 @@ function saveToStorage() {
   }
 }
 function updateStorageBar() {
+  const el = document.getElementById('storageInfo');
+  if(!el) return;
   try {
     const raw = localStorage.getItem(STORAGE_KEY)||'';
-    const kb = (new Blob([raw]).size/1024).toFixed(1);
-    document.getElementById('storageInfo').textContent = `${memos.length}件保存中 · ${kb} KB使用`;
-  } catch(e) { document.getElementById('storageInfo').textContent='このデバイスに保存済み'; }
+    const kb = (encodeURIComponent(raw).replace(/%[A-F0-9]{2}/g,'x').length/1024).toFixed(1);
+    el.textContent = `${memos.length}件保存中 · ${kb} KB使用`;
+  } catch(e) { el.textContent='このデバイスに保存済み'; }
 }
 function escHtml(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function fmtDate(){const d=new Date();return(d.getMonth()+1)+'/'+d.getDate();}
@@ -372,31 +374,28 @@ function mdToHtml(md){
     s=s.replace(/\[(.+?)\]\((.+?)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>');
     return s;
   }
-  const lines=md.split('\n');
-  let html='', i=0;
+  var lines=md.split('\n');
+  var html='', i=0;
   while(i<lines.length){
-    const line=lines[i];
-    const h3=/^### (.+)/.exec(line); if(h3){html+=`<h3>${inlineFmt(h3[1])}</h3>`;i++;continue;}
-    const h2=/^## (.+)/.exec(line);  if(h2){html+=`<h2>${inlineFmt(h2[1])}</h2>`;i++;continue;}
-    const h1=/^# (.+)/.exec(line);   if(h1){html+=`<h1>${inlineFmt(h1[1])}</h1>`;i++;continue;}
+    var line=lines[i];
+    var h3=/^### (.+)/.exec(line); if(h3){html+='<h3>'+inlineFmt(h3[1])+'</h3>';i++;continue;}
+    var h2=/^## (.+)/.exec(line);  if(h2){html+='<h2>'+inlineFmt(h2[1])+'</h2>';i++;continue;}
+    var h1=/^# (.+)/.exec(line);   if(h1){html+='<h1>'+inlineFmt(h1[1])+'</h1>';i++;continue;}
     if(/^---$/.test(line)){html+='<hr>';i++;continue;}
     if(/^```/.test(line)){
-      const lang=line.slice(3).trim();
       i++;
-      let code='';
-      while(i<lines.length&&!/^```/.test(lines[i])){code+=inlineEsc(lines[i])+'
-';i++;}
-      if(/^```/.test(lines[i]??'')) i++;
-      html+=`<pre><code${lang?` class="language-${inlineEsc(lang)}"`:''}>` +code.replace(/
-$/,'')+ `</code></pre>`;
+      var code='';
+      while(i<lines.length&&!/^```/.test(lines[i])){code+=inlineEsc(lines[i])+'\n';i++;}
+      if(i<lines.length&&/^```/.test(lines[i])) i++;
+      html+='<pre><code>'+code.replace(/\n$/,'')+'</code></pre>';
       continue;
     }
-    if(/^> /.test(line)){html+=`<blockquote>${inlineFmt(line.slice(2))}</blockquote>`;i++;continue;}
+    if(/^> /.test(line)){html+='<blockquote>'+inlineFmt(line.slice(2))+'</blockquote>';i++;continue;}
     if(/^- \[[ x]\] /.test(line)){
       html+='<ul style="padding-left:0">';
       while(i<lines.length&&/^- \[[ x]\] /.test(lines[i])){
-        const checked=/^- \[x\] /.test(lines[i]);
-        html+=`<li style="list-style:none"><input type="checkbox" ${checked?'checked ':''} disabled> ${inlineFmt(lines[i].slice(6))}</li>`;
+        var checked=/^- \[x\] /.test(lines[i]);
+        html+='<li style="list-style:none"><input type="checkbox" '+(checked?'checked ':'')+' disabled> '+inlineFmt(lines[i].slice(6))+'</li>';
         i++;
       }
       html+='</ul>';continue;
@@ -404,23 +403,23 @@ $/,'')+ `</code></pre>`;
     if(/^[-*] /.test(line)){
       html+='<ul>';
       while(i<lines.length&&/^[-*] /.test(lines[i])&&!/^- \[[ x]\] /.test(lines[i])){
-        html+=`<li>${inlineFmt(lines[i].slice(2))}</li>`;i++;
+        html+='<li>'+inlineFmt(lines[i].slice(2))+'</li>';i++;
       }
       html+='</ul>';continue;
     }
     if(/^\d+\. /.test(line)){
       html+='<ol>';
       while(i<lines.length&&/^\d+\. /.test(lines[i])){
-        html+=`<li>${inlineFmt(lines[i].replace(/^\d+\. /,''))}</li>`;i++;
+        html+='<li>'+inlineFmt(lines[i].replace(/^\d+\. /,''))+'</li>';i++;
       }
       html+='</ol>';continue;
     }
     if(line.trim()===''){html+='<br>';i++;continue;}
-    let para='';
-    while(i<lines.length&&lines[i].trim()!==''&&!/^(#|>|[-*]|\d+\.|---|```)/.test(lines[i])){
+    var para='';
+    while(i<lines.length&&lines[i].trim()!==''&&!/^(#|[-*]|>|\d+\.|---|```)/.test(lines[i])){
       para+=lines[i]+'\n';i++;
     }
-    if(para.trim()) html+=`<p>${inlineFmt(para.trim()).replace(/\n/g,'<br>')}</p>`;
+    if(para.trim()) html+='<p>'+inlineFmt(para.trim()).replace(/\n/g,'<br>')+'</p>';
   }
   return html;
 }
@@ -480,9 +479,9 @@ if('serviceWorker' in navigator){
   window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
 }
 
-loadFromStorage();
-updateStorageBar();
-renderList();
+try { loadFromStorage(); } catch(e) { console.error('load error', e); }
+try { updateStorageBar(); } catch(e) { console.error('storageBar error', e); }
+try { renderList(); } catch(e) { console.error('renderList error', e); }
 </script>
 </body>
 </html>
